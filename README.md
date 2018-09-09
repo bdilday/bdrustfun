@@ -1,0 +1,2 @@
+# bdrustfun
+fun with rust
