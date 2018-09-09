@@ -60,7 +60,12 @@ fn run(matches: ArgMatches) {
     
     let m = mean(&ans);
     let s = standard_deviation(&ans, Some(m));
-    println!("mean {:.4} {:.4} => {:.4} ", m, s, s/(num_iter as f64).sqrt());
+   
+    println!(
+"
+mean packs bought : {:.4}
+standard dev      : {:.4}
+std. error on mean: {:.4}", m, s, s/(num_iter as f64).sqrt());
 }
 
 fn number_trials(num_suc: i32, num_pool: i32, num_cards: i32) -> i32 {
