@@ -1,0 +1,10 @@
+[package]
+name = "cards_permutations"
+version = "0.1.0"
+authors = ["Ben Dilday <ben.dilday.phd@gmail.com>"]
+
+[dependencies]
+rand = "0.5.5"
+statistical = "0.1.1"
+rayon = "1.0.2"
+clap = "2.32.0"
