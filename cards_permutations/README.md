@@ -8,7 +8,7 @@ Example use:
 
 ``` 
 # download and compile
-git@github.com:bdilday/bdrustfun.git
+git clone git@github.com:bdilday/bdrustfun.git
 cd bdrustfun/cards_permutations/ 
 cargo build --release
 ```
