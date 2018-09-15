@@ -45,21 +45,24 @@ fn run(matches: ArgMatches) {
     assert!(outs_prob > 0.0);
 
     let mut items = vec!(
-        Weighted { weight: prob_to_weight(event_probs.X1B), item: Event::X1B(true, true) },
-        Weighted { weight: prob_to_weight(event_probs.X2B), item: Event::X2B(true) },
+        Weighted { weight: prob_to_weight(event_probs.X1B * take_base.X1B_23 * take_base.X1B_3H), item: Event::X1B(true, true) },
+        Weighted { weight: prob_to_weight(event_probs.X1B * (1.0-take_base.X1B_23) * take_base.X1B_3H), item: Event::X1B(true, false) },
+        Weighted { weight: 0, item: Event::X1B(false, true) },
+        Weighted { weight: prob_to_weight(event_probs.X1B * (1.0-take_base.X1B_23) * (1.0-take_base.X1B_3H)), item: Event::X1B(false, false) },
+        Weighted { weight: prob_to_weight(event_probs.X2B * take_base.X1B_23), item: Event::X2B(true) },
+        Weighted { weight: prob_to_weight(event_probs.X2B * (1.0-take_base.X1B_23)), item: Event::X2B(true) },
         Weighted { weight: prob_to_weight(event_probs.X2B), item: Event::X3B },
         Weighted { weight: prob_to_weight(event_probs.X2B), item: Event::X4B },
         Weighted { weight: prob_to_weight(event_probs.X2B), item: Event::BB },
         Weighted { weight: prob_to_weight(outs_prob), item: Event::Out });
-    
+        
     println!("{:?}", items);
-    simulate_event(&items);    
+    simulate_event(&mut items);    
 }
 
 fn prob_to_weight(p: f64) -> u32 {
     (10000.0 * p) as u32
 }
-
 
 #[derive(Clone, Copy, Debug)]
 struct EventProbs {
@@ -100,11 +103,11 @@ enum Event {
 }
 
 
-fn simulate_event(items: &mut Vec<Weighted<Event>>) -> Event {
+fn simulate_event(mut items: &mut Vec<Weighted<Event>>) -> Event {
 
-    // let wc = WeightedChoice::new(&mut items);
+    let wc = WeightedChoice::new(&mut items);
     
-    // let ev = wc.sample(&mut rand::thread_rng());
+    let ev = wc.sample(&mut rand::thread_rng());
 
     // match ev {
     //     Event::X1B(take_base_3rdHome, take_base_2nd3rd) => {
@@ -123,4 +126,3 @@ fn simulate_event(items: &mut Vec<Weighted<Event>>) -> Event {
 
     Event::X4B
 }
-
