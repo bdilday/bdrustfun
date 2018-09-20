@@ -1,4 +1,5 @@
 
+    #![allow(non_snake_case)]
 
 #[macro_use(value_t)]
 extern crate clap;
@@ -7,6 +8,9 @@ extern crate rand;
 use clap::{Arg, ArgMatches, App};
 use rand::distributions::
     {Weighted, WeightedChoice, Distribution, Bernoulli};
+use rand::distributions::WeightedIndex;
+use rand::thread_rng;
+use rand::{Rng, SeedableRng, StdRng};
 
 fn main() {
          let matches = App::new("inning_sim")
@@ -56,8 +60,21 @@ fn run(matches: ArgMatches) {
         Weighted { weight: prob_to_weight(event_probs.X2B), item: Event::BB },
         Weighted { weight: prob_to_weight(outs_prob), item: Event::Out });
         
-    println!("{:?}", items);
-    simulate_event(&mut items);    
+    let weights = [1, 2, 3];
+    let seed = [1,0,0,0, 23,0,0,0, 200,1,0,0, 210,30,0,0,
+                    0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0];
+    let mut rngX: StdRng = SeedableRng::from_seed(seed);
+    let dist = WeightedIndex::new(&weights).unwrap();
+    let mut rng = thread_rng();
+    for _ in 0..100 {
+        // 50% chance to print 'a', 25% chance to print 'b', 25% chance to print 'c'
+        println!("{}", weights[dist.sample(&mut rngX)]); 
+    }
+ 
+    // for _ in 1..1000 {
+    //    let new_ev = simulate_event(&mut items);
+    //    println!("{:?}", new_ev);
+    // }
 }
 
 fn prob_to_weight(p: f64) -> u32 {
@@ -104,25 +121,7 @@ enum Event {
 
 
 fn simulate_event(mut items: &mut Vec<Weighted<Event>>) -> Event {
-
+    println!("{:?}", items);
     let wc = WeightedChoice::new(&mut items);
-    
-    let ev = wc.sample(&mut rand::thread_rng());
-
-    // match ev {
-    //     Event::X1B(take_base_3rdHome, take_base_2nd3rd) => {
-    //         let d = Bernoulli::new(0.5);
-    //         Event::X1B(
-    //             d.sample(&mut rand::thread_rng()),
-    //             d.sample(&mut rand::thread_rng())
-    //             )
-    //     }
-    //     Event::X2B(take_base_3rdHome) => {
-    //         let d = Bernoulli::new(0.5);
-    //         Event::X2B(d.sample(&mut rand::thread_rng()))
-    //     }
-    //     _ => ev
-    // }
-
-    Event::X4B
+    wc.sample(&mut rand::thread_rng())
 }
