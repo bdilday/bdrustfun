@@ -12,6 +12,7 @@ use rand::distributions::WeightedIndex;
 use rand::thread_rng;
 use rand::{SeedableRng};
 use rand::rngs::{StdRng};
+use rayon::prelude::*;
 
 fn main() {
          let matches = App::new("inning_sim")
@@ -34,63 +35,6 @@ fn run(matches: ArgMatches) {
 
     let num_iter: i32 = value_t!(matches.value_of("num_iter"), i32).unwrap();
 
-    let take_base = TakeBaseProb {
-        X1B_23: 0.25,
-        X1B_3H: 0.5,
-        X2B_3H: 0.25
-    };
-
-    let event_probs = EventProbs { 
-        X1B: 0.08,
-        BB: 0.15,
-        X2B: 0.05,
-        X3B: 0.005,
-        X4B:  0.03
-    };
-
-    let outs_prob = 1.0 - event_probs.sum_probs();
-    assert!(outs_prob > 0.0);
-
-    let items = [
-        Event::X1B(true, true),
-        Event::X1B(true, false),
-        Event::X1B(false, false),
-        Event::X2B(true),
-        Event::X2B(false),
-        Event::X3B,
-        Event::X4B,
-        Event::BB,
-        Event::Out
-        ];
-
-    let weights = [
-        prob_to_weight(event_probs.X1B * take_base.X1B_3H * take_base.X1B_23), 
-        prob_to_weight(event_probs.X1B * take_base.X1B_3H * (1.0-take_base.X1B_23)),
-        prob_to_weight(event_probs.X1B * (1.0-take_base.X1B_3H) * (1.0-take_base.X1B_23)), 
-        prob_to_weight(event_probs.X2B * take_base.X2B_3H), 
-        prob_to_weight(event_probs.X2B * (1.0-take_base.X2B_3H)), 
-        prob_to_weight(event_probs.X3B), 
-        prob_to_weight(event_probs.X4B), 
-        prob_to_weight(event_probs.BB), 
-        prob_to_weight(outs_prob)
-        ];
-         
-    assert!(weights.len() == items.len());
-
-    let seed = [
-        1,0,0,0, 23,0,0,0, 200,1,0,0, 210,30,0,0,
-        0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0];
-    
-    let mut rngX: StdRng = SeedableRng::from_seed(seed);
- 
-    let mut rng = thread_rng();
-
-    let dist = WeightedIndex::new(&weights).unwrap();
-    
-    let mut simulate_event = || -> Event {
-        items[dist.sample(&mut rngX)]
-    };
-
 
     let mut bo = BOState {
         bases: [0,0,0],
@@ -101,29 +45,23 @@ fn run(matches: ArgMatches) {
         bases: [0,0,0],
         outs: 0
     };
-
-    let mut state_transition = |initial_state: &mut BOState| -> BOState {
-        let ev = simulate_event();
-        initial_state.evolve_state(ev)
-    };
    
     let sim_step = return_closure();
+
     // for _ in 0..num_iter {
-    //     bo = state_transition(&mut old_bo);
+    //     bo = sim_step(&mut old_bo);
     //     let runs_scored = bo.runs_scored(old_bo);
     //     println!("******************");
-    //     println!("{:?} {}", bo, runs_scored);
+    //     println!("{:?} {:?} {}", old_bo, bo, runs_scored);
     //     old_bo = bo;
     // }
 
-    for _ in 0..num_iter {
-        bo = sim_step(&mut old_bo);
-        let runs_scored = bo.runs_scored(old_bo);
-        println!("******************");
-        println!("{:?} {:?} {}", old_bo, bo, runs_scored);
-        old_bo = bo;
-    }
-
+    bo = BOState {
+        bases: [0,0,0],
+        outs: 0
+    };
+    let total_runs = runs_from_state(bo, 0);
+    println!("runs {}", total_runs);
 }
 
 fn return_closure() -> impl Fn(&mut BOState) -> BOState {
