@@ -4,6 +4,10 @@
 #[macro_use(value_t)]
 extern crate clap;
 extern crate rand;
+extern crate rayon;
+extern crate statistical;
+extern crate serde;
+extern crate serde_json; // future
 
 use clap::{Arg, ArgMatches, App};
 use rand::distributions::
@@ -13,6 +17,7 @@ use rand::thread_rng;
 use rand::{SeedableRng};
 use rand::rngs::{StdRng};
 use rayon::prelude::*;
+use statistical::{mean, standard_deviation};
 
 fn main() {
          let matches = App::new("inning_sim")
@@ -62,6 +67,20 @@ fn run(matches: ArgMatches) {
     };
     let total_runs = runs_from_state(bo, 0);
     println!("runs {}", total_runs);
+
+    let ans: Vec<f64> = (0..num_iter).into_par_iter().map(|_| {
+        runs_from_state(bo, 0) as f64}
+        ).collect();
+
+    let m = mean(&ans);
+    let s = standard_deviation(&ans, Some(m));
+   
+    println!(
+"
+mean run          : {:.4}
+standard dev      : {:.4}
+std. error on mean: {:.4}", m, s, s/(num_iter as f64).sqrt());
+   
 }
 
 fn return_closure() -> impl Fn(&mut BOState) -> BOState {
@@ -72,11 +91,11 @@ fn return_closure() -> impl Fn(&mut BOState) -> BOState {
     };
 
     let event_probs = EventProbs { 
-        X1B: 0.08,
-        BB: 0.15,
-        X2B: 0.05,
-        X3B: 0.005,
-        X4B:  0.03
+        X1B: 0.0,
+        BB: 0.0,
+        X2B: 0.0,
+        X3B: 0.00,
+        X4B:  0.1
     };
 
     let outs_prob = 1.0 - event_probs.sum_probs();
@@ -126,11 +145,6 @@ fn return_closure() -> impl Fn(&mut BOState) -> BOState {
     
 }
  
-// fn take_closure<F>(f: F, x: &mut BOState) -> BOState 
-//     where F: Fn(i32) -> i32 {
-//         f(x)
-//     }
-
 fn runs_from_state(mut state: BOState, running_total: i32) -> i32 {
     let sim_step = return_closure();
     match state.outs {
@@ -144,32 +158,6 @@ fn runs_from_state(mut state: BOState, running_total: i32) -> i32 {
 
 }
 
-
-// fn runs_from_state(initial_state: BOState, running_total: i32) -> i32 {
-//     match initial_state.outs {
-//         3 => running_total,
-//         _ => {
-//             let ev = simulate_event();
-//             let new_state = initial_state.evolve_state(ev);
-//             let dr = new_state.runs_scored(initial_state);
-//             runs_from_state(new_state, running_total + dr)
-//         }
-//     }
-// }
-
-// fn runs_from_state<F>(go: F, initial_state: BOState) -> i32
-//     where F: Fn(i: BOState, j: i32) -> i32 {
-        
-//         match initial_state.outs {
-//             3 => j
-//             _ => {
-//                 let bo = go(initial_state);
-//                 let runs_scored = bo.runs_scored(initial_state);
-//                 runs_from_state(go, )
-//             }
-//         }        
-//     }
-    
 
 fn prob_to_weight(p: f64) -> u32 {
     (10000.0 * p) as u32
@@ -299,16 +287,4 @@ enum Event {
     X4B,
     BB,
     Out
-}
-
-
-fn simulate_event_closure(weights: &[u32]) -> Box<dyn Fn(i32) -> i32> {
-    
-    Box::new(|x| x + 1)
-}
-
-fn simulate_eventX(weights: &[u32], items: &[Event], rng: &mut StdRng) -> Event {
-    println!("{:?}", weights);
-    let dist = WeightedIndex::new(weights).unwrap();
-    items[dist.sample(&mut *rng)] 
 }
