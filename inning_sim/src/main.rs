@@ -8,7 +8,9 @@ extern crate rayon;
 extern crate statistical;
 extern crate serde;
 extern crate serde_json; // future
+mod GameState;
 
+use GameState::{BOState, Event, EventProbs, TakeBaseProb};
 use clap::{Arg, ArgMatches, App};
 use rand::distributions::
     {Distribution};
@@ -172,6 +174,11 @@ fn return_closure(event_probs: EventProbs) -> impl Fn(&mut BOState) -> BOState {
     
 }
  
+
+fn prob_to_weight(p: f64) -> u32 {
+    (10000.0 * p) as u32
+}
+
 fn runs_from_state<F>(mut state: BOState, running_total: i32, sim_step: F) -> i32 
     where F: Fn(&mut BOState) -> BOState {
     match state.outs {
@@ -185,132 +192,3 @@ fn runs_from_state<F>(mut state: BOState, running_total: i32, sim_step: F) -> i3
 }
 
 
-fn prob_to_weight(p: f64) -> u32 {
-    (10000.0 * p) as u32
-}
-
-#[derive(Clone, Copy, Debug)]
-struct EventProbs {
-    X1B: f64,
-    X2B: f64,
-    X3B: f64,
-    X4B: f64,
-    BB: f64
-}
-
-impl EventProbs {
-    fn sum_probs(&self) -> f64 {
-        self.X1B + self.X2B + self.X3B + self.X4B + self.BB
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-struct TakeBaseProb {
-    X1B_3H: f64,
-    X1B_23: f64,
-    X2B_3H: f64
-}
-
-#[derive(Clone, Copy, Debug)]
-struct BOState {
-    bases: [i32; 3],
-    outs: i32
-}
-
-#[derive(Clone, Copy, Debug)]
-struct GameState {
-    bo: BOState,
-    runs: i32
-}
-
-impl BOState {
-    fn runs_scored(&self, last_state: BOState) -> i32 {
-        // before = after
-        // runners + 1 = runners + runs scored + outs made
-        // runs scored = -d(runners) - d(outs) + 1 
-        let runners_end: i32 = self.bases.iter().sum();
-        let runners_start: i32 = last_state.bases.iter().sum();
-        let douts = self.outs - last_state.outs;
-        -douts - (runners_end - runners_start) + 1
-    }
-}
-
-impl BOState {
-    fn evolve_state(&self, ev: Event) -> BOState {
-        
-        match ev {
-            
-            Event::Out => {
-                BOState {
-                    bases: self.bases,
-                    outs: self.outs + 1,
-                }
-            },
-
-            Event::BB => {
-                let b1 = 1;
-                let b2 = if self.bases[0] == 1 { 1 } else {self.bases[1]}; 
-                let b3 = if self.bases[0] == 1 && self.bases[1] == 1 { 1 } else {self.bases[2]};
-                BOState {
-                    bases: [b1, b2, b3],
-                    outs: self.outs,
-                }
-            },
-
-            Event::X1B(go_34, go_23) => {
-                let b1 = 1;
-
-                let (b3, b2) = match (go_34, go_23) { 
-                    // (take home, take 3rd) => (3rd base, 2nd base)
-                    (true, true) => (self.bases[0], 0),
-                    (true, false) => (0, self.bases[0]),
-                    (false, false) => (self.bases[1], self.bases[0]),
-                    (false, true) => panic!("trailing runner can't take a base unless lead runner does also!")
-                };
-                
-                BOState {
-                    bases: [b1, b2, b3],
-                    outs: self.outs,
-                }
-            },
-
-            Event::X2B(go_34) => {
-                let b1 = 0;
-                let b2 = 1;
-                let b3 = if go_34 { 0 } else { self.bases[0] };
-                BOState {
-                    bases: [b1, b2, b3],
-                    outs: self.outs,
-                }
-            },
-
-            Event::X3B => {
-                let b1 = 0;
-                let b2 = 0;
-                let b3 = 1;
-                BOState {
-                    bases: [b1, b2, b3],
-                    outs: self.outs,
-                }
-            },
-
-            Event::X4B => {
-                BOState {
-                    bases: [0, 0, 0],
-                    outs: self.outs,
-                }
-            }
-
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum Event {
-    X1B(bool, bool),
-    X2B(bool),
-    X3B,
-    X4B,
-    BB,
-    Out
-}
