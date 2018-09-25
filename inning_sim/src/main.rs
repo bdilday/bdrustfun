@@ -105,7 +105,7 @@ fn run(matches: ArgMatches) {
     };
 
 
-    let mut sim_step = return_closure(event_probs);
+    let sim_step = return_closure(event_probs);
 
     let ans: Vec<f64> = (0..num_iter).into_par_iter().map(|_| {
         runs_from_state(bo, 0, &sim_step) as f64}
@@ -116,9 +116,9 @@ fn run(matches: ArgMatches) {
    
     println!(
 "
-mean run          : {:.4}
-standard dev      : {:.4}
-std. error on mean: {:.4}", m, s, s/(num_iter as f64).sqrt());
+mean run          : {:.4} ({:.2})
+standard dev      : {:.4} ({:.2})
+std. error on mean: {:.4}", m, m * 9.0, s, s * 9.0, s/(num_iter as f64).sqrt());
    
 }
 
