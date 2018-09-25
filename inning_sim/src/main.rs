@@ -14,15 +14,16 @@ use rand::distributions::
     {Distribution};
 use rand::distributions::WeightedIndex;
 use rand::thread_rng;
-use rand::{SeedableRng};
-use rand::rngs::{StdRng};
+// use rand::{SeedableRng};
+// use rand::rngs::{StdRng};
 use rayon::prelude::*;
 use statistical::{mean, standard_deviation};
 
 fn main() {
-         let matches = App::new("inning_sim")
+    let matches = App::new("inning_sim")
         .version("0.1")
         .about("simulate the number of runs scored in a 3-out inning")
+
         .arg(Arg::with_name("num_iter")
             .short("n")
             .long("num_iter")
@@ -31,6 +32,47 @@ fn main() {
             .help("number of simulations to run")
             .required(true)
             )
+
+        .arg(Arg::with_name("p0")
+            .long("p0")
+            .takes_value(true)
+            .multiple(false)
+            .help("probability for BB")
+            .required(true)
+            )
+
+        .arg(Arg::with_name("p1")
+            .long("p1")
+            .takes_value(true)
+            .multiple(false)
+            .help("probability for X1B")
+            .required(true)
+            )
+
+        .arg(Arg::with_name("p2")
+            .long("p2")
+            .takes_value(true)
+            .multiple(false)
+            .help("probability for X2B")
+            .required(true)
+            )
+
+        .arg(Arg::with_name("p3")
+            .long("p3")
+            .takes_value(true)
+            .multiple(false)
+            .help("probability for X3B")
+            .required(true)
+            )
+
+        .arg(Arg::with_name("p4")
+            .long("p4")
+            .takes_value(true)
+            .multiple(false)
+            .help("probability for X4B")
+            .required(true)
+            )
+
         .get_matches();
 
     run(matches);
@@ -39,37 +81,32 @@ fn main() {
 fn run(matches: ArgMatches) {
 
     let num_iter: i32 = value_t!(matches.value_of("num_iter"), i32).unwrap();
+    let p0: f64 = value_t!(matches.value_of("p0"), f64).unwrap();
+    let p1: f64 = value_t!(matches.value_of("p1"), f64).unwrap();
+    let p2: f64 = value_t!(matches.value_of("p2"), f64).unwrap();
+    let p3: f64 = value_t!(matches.value_of("p3"), f64).unwrap();
+    let p4: f64 = value_t!(matches.value_of("p4"), f64).unwrap();
+    
 
-
-    let mut bo = BOState {
+    
+    let bo = BOState {
         bases: [0,0,0],
         outs: 0
     };
 
-    let mut old_bo = BOState {
-        bases: [0,0,0],
-        outs: 0
+    let event_probs = EventProbs { 
+        BB: p0,
+        X1B: p1,
+        X2B: p2,
+        X3B: p3,
+        X4B: p4
     };
-   
-    let sim_step = return_closure();
 
-    // for _ in 0..num_iter {
-    //     bo = sim_step(&mut old_bo);
-    //     let runs_scored = bo.runs_scored(old_bo);
-    //     println!("******************");
-    //     println!("{:?} {:?} {}", old_bo, bo, runs_scored);
-    //     old_bo = bo;
-    // }
 
-    bo = BOState {
-        bases: [0,0,0],
-        outs: 0
-    };
-    let total_runs = runs_from_state(bo, 0);
-    println!("runs {}", total_runs);
+    let mut sim_step = return_closure(event_probs);
 
     let ans: Vec<f64> = (0..num_iter).into_par_iter().map(|_| {
-        runs_from_state(bo, 0) as f64}
+        runs_from_state(bo, 0, &sim_step) as f64}
         ).collect();
 
     let m = mean(&ans);
@@ -83,19 +120,12 @@ std. error on mean: {:.4}", m, s, s/(num_iter as f64).sqrt());
    
 }
 
-fn return_closure() -> impl Fn(&mut BOState) -> BOState {
-        let take_base = TakeBaseProb {
+fn return_closure(event_probs: EventProbs) -> impl Fn(&mut BOState) -> BOState {
+    
+    let take_base = TakeBaseProb {
         X1B_23: 0.25,
         X1B_3H: 0.5,
         X2B_3H: 0.25
-    };
-
-    let event_probs = EventProbs { 
-        X1B: 0.0,
-        BB: 0.0,
-        X2B: 0.0,
-        X3B: 0.00,
-        X4B:  0.1
     };
 
     let outs_prob = 1.0 - event_probs.sum_probs();
@@ -128,13 +158,10 @@ fn return_closure() -> impl Fn(&mut BOState) -> BOState {
          
     assert!(weights.len() == items.len());
 
-    let seed = [
-        1,0,0,0, 23,0,0,0, 200,1,0,0, 210,30,0,0,
-        0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0];
+    // let seed = [
+    //     1,0,0,0, 23,0,0,0, 200,1,0,0, 210,30,0,0,
+    //     0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0];
     
-    let mut rngX: StdRng = SeedableRng::from_seed(seed);
- 
-    let mut rng = thread_rng();
 
     let dist = WeightedIndex::new(&weights).unwrap();
 
@@ -145,17 +172,16 @@ fn return_closure() -> impl Fn(&mut BOState) -> BOState {
     
 }
  
-fn runs_from_state(mut state: BOState, running_total: i32) -> i32 {
-    let sim_step = return_closure();
+fn runs_from_state<F>(mut state: BOState, running_total: i32, sim_step: F) -> i32 
+    where F: Fn(&mut BOState) -> BOState {
     match state.outs {
         3 => running_total,
         _ => {
             let updated_state = sim_step(&mut state);
             let updated_runs = updated_state.runs_scored(state);
-            runs_from_state(updated_state, running_total + updated_runs)
+            runs_from_state(updated_state, running_total + updated_runs, sim_step)
         }
     }
-
 }
 
 
